@@ -354,6 +354,7 @@ module.exports = async (req, res) => {
 
         <div class="tabs">
           <button class="tab active" onclick="switchTab('send')">✉️ Send Message</button>
+          <button class="tab" onclick="switchTab('sms')">📱 Text/SMS</button>
           <button class="tab" onclick="switchTab('random')">🎲 Random</button>
           <button class="tab" onclick="switchTab('about')">ℹ️ About</button>
         </div>
@@ -389,6 +390,54 @@ module.exports = async (req, res) => {
             </button>
 
             <div id="sendResult" class="result"></div>
+          </div>
+        </div>
+
+        <!-- Text/SMS Message Tab -->
+        <div id="tab-sms" class="tab-content">
+          <div class="card">
+            <div class="form-group">
+              <label>From (Optional)</label>
+              <input 
+                type="text" 
+                id="senderName" 
+                placeholder="Your name or phone number"
+                maxlength="50"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Text Message</label>
+              <textarea 
+                id="textMessage" 
+                placeholder="Type your text message here...&#10;&#10;💡 Tip: This endpoint works with SMS webhooks from Twilio, Vonage, etc." 
+                maxlength="300"
+                oninput="updateTextCharCount()"
+              ></textarea>
+              <div class="char-count"><span id="textCharCount">0</span>/300</div>
+            </div>
+
+            <button class="btn btn-primary" onclick="sendTextMessage()">
+              <span>📱</span> Send Text to ESP32
+            </button>
+
+            <div id="textResult" class="result"></div>
+          </div>
+
+          <div class="card" style="margin-top: 20px; background: #f0f9ff; border-left: 4px solid #007bff;">
+            <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">📞 SMS Integration</h4>
+            <p style="color: #666; font-size: 13px; line-height: 1.6; margin: 0 0 10px 0;">
+              You can send messages to your ESP32 via SMS using services like Twilio or Vonage.
+            </p>
+            <div style="background: white; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; margin-top: 10px;">
+              <div style="color: #666; margin-bottom: 5px;">Webhook URL:</div>
+              <div id="webhookUrl" style="color: #007bff; word-break: break-all; font-weight: bold;">
+                Loading...
+              </div>
+              <button onclick="copyWebhookUrl()" style="margin-top: 10px; padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: inherit;">
+                📋 Copy Webhook URL
+              </button>
+            </div>
           </div>
         </div>
 
@@ -511,9 +560,11 @@ void fetchCompliment() {
         window.addEventListener('DOMContentLoaded', function() {
           apiBaseUrl = window.location.origin;
           const apiUrl = apiBaseUrl + '/api/compliment';
+          const webhookUrl = apiBaseUrl + '/api/message';
           
           // Update the API URL display
           document.getElementById('apiUrl').textContent = apiUrl;
+          document.getElementById('webhookUrl').textContent = webhookUrl;
           
           // Update the code snippet
           const codeSnippet = `const char* API_URL = "${apiUrl}";
@@ -553,6 +604,22 @@ void fetchCompliment() {
             setTimeout(() => {
               btn.textContent = originalText;
               btn.style.background = '#667eea';
+            }, 2000);
+          }).catch(() => {
+            alert('Failed to copy. Please copy manually: ' + url);
+          });
+        }
+
+        function copyWebhookUrl() {
+          const url = document.getElementById('webhookUrl').textContent;
+          navigator.clipboard.writeText(url).then(() => {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            btn.style.background = '#28a745';
+            setTimeout(() => {
+              btn.textContent = originalText;
+              btn.style.background = '#007bff';
             }, 2000);
           }).catch(() => {
             alert('Failed to copy. Please copy manually: ' + url);
@@ -600,6 +667,12 @@ void fetchCompliment() {
           document.getElementById('charCount').textContent = count;
         }
 
+        function updateTextCharCount() {
+          const textarea = document.getElementById('textMessage');
+          const count = textarea.value.length;
+          document.getElementById('textCharCount').textContent = count;
+        }
+
         function showResult(elementId, message, type) {
           const result = document.getElementById(elementId);
           result.textContent = message;
@@ -644,6 +717,48 @@ void fetchCompliment() {
           } finally {
             btn.disabled = false;
             btn.innerHTML = '<span>📤</span> Send to ESP32';
+          }
+        }
+
+        async function sendTextMessage() {
+          const message = document.getElementById('textMessage').value.trim();
+          const sender = document.getElementById('senderName').value.trim();
+          
+          if (!message) {
+            showResult('textResult', '⚠️ Please enter a message', 'error');
+            return;
+          }
+
+          const btn = event.target;
+          btn.disabled = true;
+          btn.innerHTML = '<div class="spinner"></div> Sending...';
+
+          try {
+            const payload = { message };
+            if (sender) {
+              payload.sender = sender;
+            }
+
+            const response = await fetch('/api/message', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+              showResult('textResult', '✅ Text message sent successfully!', 'success');
+              document.getElementById('textMessage').value = '';
+              updateTextCharCount();
+            } else {
+              showResult('textResult', '❌ Failed: ' + data.error, 'error');
+            }
+          } catch (error) {
+            showResult('textResult', '❌ Error: ' + error.message, 'error');
+          } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span>📱</span> Send Text to ESP32';
           }
         }
 
