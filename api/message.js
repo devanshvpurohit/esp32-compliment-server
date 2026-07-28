@@ -72,10 +72,10 @@ module.exports = async (req, res) => {
   const esp32Port = parseInt(process.env.ESP32_PORT || '80', 10);
   
   if (!esp32Ip) {
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
       error: 'ESP32_IP not configured',
-      hint: 'Set ESP32_IP environment variable in Vercel settings'
+      hint: 'Set ESP32_IP environment variable in Vercel settings, or use the polling method'
     });
   }
   
@@ -84,25 +84,29 @@ module.exports = async (req, res) => {
   let sender = 'Unknown';
   let messageType = 'text';
   
-  if (req.body) {
-    // Handle different input formats
-    if (typeof req.body === 'string') {
-      message = req.body;
-    } else if (req.body.message) {
-      message = req.body.message;
-      sender = req.body.sender || req.body.from || sender;
-      messageType = req.body.type || messageType;
-    } else if (req.body.text) {
-      // SMS webhook format
-      message = req.body.text;
-      sender = req.body.from || sender;
-      messageType = 'sms';
-    } else if (req.body.Body) {
-      // Twilio format
-      message = req.body.Body;
-      sender = req.body.From || sender;
-      messageType = 'sms';
+  try {
+    if (req.body) {
+      // Handle different input formats
+      if (typeof req.body === 'string') {
+        message = req.body;
+      } else if (req.body.message) {
+        message = req.body.message;
+        sender = req.body.sender || req.body.from || sender;
+        messageType = req.body.type || messageType;
+      } else if (req.body.text) {
+        // SMS webhook format
+        message = req.body.text;
+        sender = req.body.from || sender;
+        messageType = 'sms';
+      } else if (req.body.Body) {
+        // Twilio format
+        message = req.body.Body;
+        sender = req.body.From || sender;
+        messageType = 'sms';
+      }
     }
+  } catch (e) {
+    console.error('Error parsing request body:', e);
   }
   
   if (!message || message.trim().length === 0) {
@@ -137,11 +141,12 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error:`, error.message);
     
-    res.status(500).json({
+    res.status(200).json({
       success: false,
       error: error.message,
       message: formattedMessage,
       esp32: `${esp32Ip}:${esp32Port}`,
+      hint: 'Make sure ESP32 is online and accessible',
       timestamp: new Date().toISOString()
     });
   }

@@ -108,8 +108,18 @@ module.exports = async (req, res) => {
   }
 
   // Get ESP32 configuration from environment variables
-  const esp32Ip = process.env.ESP32_IP || '192.168.4.1';
+  const esp32Ip = process.env.ESP32_IP;
   const esp32Port = parseInt(process.env.ESP32_PORT || '80', 10);
+  
+  // Check if ESP32_IP is configured
+  if (!esp32Ip) {
+    return res.status(200).json({
+      success: false,
+      error: 'ESP32_IP not configured',
+      message: 'Set ESP32_IP environment variable in Vercel settings, or use the polling method (ESP32 fetches from /api/compliment)',
+      hint: 'Your ESP32 can poll /api/compliment endpoint instead'
+    });
+  }
   
   // Get custom message from request body or use random
   let message = getRandomCompliment();
@@ -133,12 +143,14 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error('Error sending to ESP32:', error);
     
-    res.status(500).json({
+    res.status(200).json({
       success: false,
       error: error.message,
       message: 'Failed to send compliment to ESP32',
+      compliment: message,
       esp32: `${esp32Ip}:${esp32Port}`,
-      hint: 'Make sure ESP32_IP environment variable is set correctly in Vercel settings'
+      hint: 'Make sure ESP32 is online and accessible. Check ESP32_IP is correct.',
+      timestamp: new Date().toISOString()
     });
   }
 };

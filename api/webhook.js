@@ -96,6 +96,16 @@ function sendToESP32(ip, port, message) {
 }
 
 module.exports = async (req, res) => {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   // Verify authorization if secret is set
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -113,10 +123,10 @@ module.exports = async (req, res) => {
   const esp32Port = parseInt(process.env.ESP32_PORT || '80', 10);
   
   if (!esp32Ip) {
-    return res.status(500).json({
+    return res.status(200).json({
       success: false,
       error: 'ESP32_IP environment variable not set',
-      hint: 'Add ESP32_IP to your Vercel environment variables'
+      hint: 'Add ESP32_IP to your Vercel environment variables, or use the polling method'
     });
   }
   
@@ -137,10 +147,11 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Error:`, error.message);
     
-    res.status(500).json({
+    res.status(200).json({
       success: false,
       error: error.message,
       compliment,
+      hint: 'Make sure ESP32 is online and accessible',
       timestamp: new Date().toISOString()
     });
   }
