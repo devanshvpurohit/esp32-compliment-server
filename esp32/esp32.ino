@@ -66,7 +66,7 @@
 #define VERCEL_HOST "https://esp32-server-eta.vercel.app"
 
 // ── Polling interval: how often the ESP32 checks for new messages ─────────────
-#define POLL_INTERVAL_MS   30000UL   // 30 seconds  (lower = more responsive)
+#define POLL_INTERVAL_MS   5000UL    // 5 seconds (fast response)
 
 // ── How long a received message stays on screen before reverting to clock ─────
 #define MSG_DISPLAY_MS     60000UL   // 60 seconds
