@@ -9,7 +9,7 @@
  * so this check is always accurate even after server cold-starts.
  */
 
-import { isEsp32Connected } from "./_lib/kv.js";
+import { isEsp32Connected } from "./_lib/state.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {

@@ -3,7 +3,7 @@
  * Returns the current message stored in KV.
  */
 
-import { getCurrentMessage } from "./_lib/kv.js";
+import { getCurrentMessage } from "./_lib/state.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {

@@ -4,7 +4,7 @@
  * The current message (wb:currentMessage) is left intact.
  */
 
-import { clearHistory } from "./_lib/kv.js";
+import { clearHistory } from "./_lib/state.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {

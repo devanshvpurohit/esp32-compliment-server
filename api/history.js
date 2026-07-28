@@ -3,7 +3,7 @@
  * Returns the full history list (newest-first, up to 100 messages).
  */
 
-import { getHistory } from "./_lib/kv.js";
+import { getHistory } from "./_lib/state.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {

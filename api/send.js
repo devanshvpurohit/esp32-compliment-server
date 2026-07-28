@@ -6,7 +6,7 @@
  * in the history list, then returns the stored message object.
  */
 
-import { addMessage, getCurrentMessage } from "./_lib/kv.js";
+import { addMessage, getCurrentMessage } from "./_lib/state.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {

@@ -18,7 +18,7 @@
  * If they differ, a new message is on screen.
  */
 
-import { pingEsp32, getCurrentMessage } from "./_lib/kv.js";
+import { pingEsp32, getCurrentMessage } from "./_lib/state.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
