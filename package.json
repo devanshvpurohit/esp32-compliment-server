@@ -1,0 +1,23 @@
+{
+  "name": "esp32-compliment-server",
+  "version": "1.0.0",
+  "description": "Node.js server that sends compliments to ESP32 clock display every 10 minutes",
+  "main": "compliment-server.js",
+  "scripts": {
+    "start": "node compliment-server.js",
+    "dev": "node compliment-server.js",
+    "test": "node test-server.js"
+  },
+  "keywords": [
+    "esp32",
+    "compliments",
+    "iot",
+    "mqtt",
+    "motivation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
