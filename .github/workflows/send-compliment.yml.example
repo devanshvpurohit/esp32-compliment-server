@@ -1,0 +1,50 @@
+name: Send ESP32 Compliment
+
+on:
+  schedule:
+    # Runs every 10 minutes (GitHub Actions is free for public repos!)
+    - cron: '*/10 * * * *'
+  
+  # Allows manual triggering from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  send-compliment:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Send compliment to ESP32 via Vercel
+        run: |
+          echo "Sending compliment at $(date)"
+          
+          # Option 1: Use the webhook endpoint
+          curl -X GET "https://your-app-name.vercel.app/api/webhook" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -w "\nStatus: %{http_code}\n"
+          
+          # Option 2: Send a custom message
+          # curl -X POST "https://your-app-name.vercel.app/api/send" \
+          #   -H "Content-Type: application/json" \
+          #   -d '{"message":"Automated message from GitHub Actions! 🚀"}' \
+          #   -w "\nStatus: %{http_code}\n"
+      
+      - name: Log completion
+        if: always()
+        run: echo "Compliment delivery attempt completed"
+
+# SETUP INSTRUCTIONS:
+# 1. Rename this file to: send-compliment.yml (remove .example)
+# 2. Replace "your-app-name.vercel.app" with your actual Vercel URL
+# 3. (Optional) Add CRON_SECRET to GitHub Secrets if you set one in Vercel
+#    - Go to: Settings → Secrets and variables → Actions → New repository secret
+#    - Name: CRON_SECRET
+#    - Value: your-secret-key
+# 4. Commit and push this file
+# 5. Check the Actions tab to see it running!
+
+# CUSTOMIZATION:
+# - Change schedule: '*/10 * * * *' = every 10 minutes
+#   - '*/5 * * * *' = every 5 minutes
+#   - '0 * * * *' = every hour
+#   - '0 9,12,15,18 * * *' = at 9am, 12pm, 3pm, 6pm
+#   - '0 9 * * *' = every day at 9am

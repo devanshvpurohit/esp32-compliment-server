@@ -47,31 +47,29 @@ After deployment, add your ESP32's IP address:
 
 ## 🔄 Step 3: Enable Automatic Messages (Optional)
 
-The `vercel.json` is already configured with a cron job that runs every 10 minutes.
+⚠️ **Important:** Vercel's free (Hobby) tier only supports **daily cron jobs**. 
 
-To verify it's active:
-
-1. Go to **"Settings"** → **"Cron Jobs"**
-2. You should see: `*/10 * * * *` → `/api/webhook`
-
-### Change the Interval
-
-Edit `vercel.json` and redeploy:
+The `vercel.json` is configured with a daily job at 9 AM:
 
 ```json
 "crons": [
   {
     "path": "/api/webhook",
-    "schedule": "*/5 * * * *"  // Every 5 minutes
+    "schedule": "0 9 * * *"  // Daily at 9:00 AM
   }
 ]
 ```
 
-Cron schedule examples:
-- `*/5 * * * *` - Every 5 minutes
-- `0 * * * *` - Every hour
-- `0 9,12,15,18 * * *` - At 9am, 12pm, 3pm, and 6pm
-- `0 9 * * *` - Every day at 9am
+### Want Messages Every 10 Minutes? 
+
+**See [FREE_TIER_SOLUTIONS.md](FREE_TIER_SOLUTIONS.md)** for multiple free alternatives:
+
+1. ✅ **ESP32 Pulls from Vercel** (Recommended - works with free tier!)
+2. ✅ **GitHub Actions** (Free unlimited cron jobs)
+3. ✅ **Third-party cron services** (cron-job.org, EasyCron, etc.)
+4. ✅ **Local Node.js server** (if you have always-on device)
+
+All solutions work with Vercel's free tier!
 
 ## 🎨 Step 4: Use Your Web App
 

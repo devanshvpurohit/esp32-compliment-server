@@ -8,6 +8,13 @@ A Node.js server that sends motivational compliments to your ESP32 clock display
 
 **[📖 Full Vercel Deployment Guide →](VERCEL_DEPLOY.md)**
 
+### ⚠️ Free Tier Note
+Vercel's free tier only supports daily cron jobs. For messages every 10 minutes, see our **[Free Tier Solutions Guide](FREE_TIER_SOLUTIONS.md)** which includes:
+- ESP32 polling (recommended)
+- GitHub Actions (free)
+- Third-party cron services
+- And more!
+
 ## Features
 
 - 🎁 Automatically sends compliments every 10 minutes
