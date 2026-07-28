@@ -125,11 +125,11 @@ return;
 }
 
 // Try to parse JSON
+const text=await res.text();
 let data;
 try{
-data=await res.json();
+data=JSON.parse(text);
 }catch(e){
-const text=await res.text();
 console.error('JSON parse error:',text);
 showResult('❌ Invalid response from server','error');
 btn.disabled=false;

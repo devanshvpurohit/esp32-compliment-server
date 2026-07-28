@@ -12,12 +12,12 @@
   ],
   "routes": [
     {
-      "src": "/api/compliment",
-      "dest": "/api/compliment.js"
+      "src": "/api/(.*)\\.py",
+      "dest": "/api/$1.py"
     },
     {
       "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "dest": "/api/$1.js"
     },
     {
       "src": "/(.*)",
