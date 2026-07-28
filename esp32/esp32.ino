@@ -50,9 +50,9 @@
 // ── SPI OLED pin mapping ──────────────────────────────────────────────────────
 #define OLED_MOSI    23   // SPI Data  (DIN / SDA)
 #define OLED_CLK     18   // SPI Clock (CLK / SCL)
-#define OLED_DC      16   // Data/Command select
+#define OLED_DC      2    // Data/Command select
 #define OLED_CS       5   // Chip Select
-#define OLED_RESET   17   // Reset (-1 if shared with MCU reset)
+#define OLED_RESET   4    // Reset (-1 if shared with MCU reset)
 
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT  64
