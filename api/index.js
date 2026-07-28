@@ -78,10 +78,5 @@ app.get("/api/esp32-ping", (req, res) => {
   res.status(200).json(currentMessage);
 });
 
-// ─── FALLBACK ROUTE ───────────────────────────────────────────────────────────
-app.all("/api/(.*)", (req, res) => {
-  res.status(404).json({ error: "Not Found" });
-});
-
 // Export the Express app as a serverless function handler for Vercel
 module.exports = app;
