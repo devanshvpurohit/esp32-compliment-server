@@ -416,38 +416,84 @@ module.exports = async (req, res) => {
 
         <!-- About Tab -->
         <div id="tab-about" class="tab-content">
+          <div class="card" style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 2px solid #667eea;">
+            <h3 style="margin-bottom: 15px; color: #333;">🔗 ESP32 Connection URL</h3>
+            <div style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+              <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Use this URL in your ESP32 code:</div>
+              <div id="apiUrl" style="font-family: monospace; font-size: 14px; color: #667eea; font-weight: bold; word-break: break-all;">
+                Loading...
+              </div>
+              <button onclick="copyToClipboard()" style="margin-top: 10px; padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; width: auto;">
+                📋 Copy URL
+              </button>
+            </div>
+            
+            <h4 style="margin: 20px 0 10px 0; color: #333; font-size: 14px;">📝 ESP32 Code Snippet:</h4>
+            <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 10px; font-family: monospace; font-size: 12px; overflow-x: auto; position: relative;">
+              <button onclick="copyCode()" style="position: absolute; top: 10px; right: 10px; padding: 5px 10px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">Copy</button>
+              <pre id="codeSnippet" style="margin: 0; white-space: pre; line-height: 1.5;">const char* API_URL = "LOADING...";
+
+void fetchCompliment() {
+  HTTPClient http;
+  http.begin(API_URL);
+  int code = http.GET();
+  
+  if (code == 200) {
+    String json = http.getString();
+    // Parse and display
+  }
+  http.end();
+}</pre>
+            </div>
+          </div>
+
           <div class="card">
             <h3 style="margin-bottom: 15px; color: #333;">📡 How It Works</h3>
             <p style="color: #666; margin-bottom: 15px; line-height: 1.6;">
               This web app sends messages directly to your ESP32 clock display via HTTP. 
-              Your ESP32 must be connected to the internet and configured to receive messages.
+              Your ESP32 can also pull messages from this server every 10 minutes.
             </p>
 
-            <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">🔧 Setup Required</h3>
-            <ol style="color: #666; margin-left: 20px; line-height: 1.8;">
-              <li>Set <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">ESP32_IP</code> environment variable in Vercel</li>
-              <li>Ensure your ESP32 has the <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">/compliment</code> endpoint</li>
-              <li>Connect your ESP32 to Wi-Fi (not AP mode)</li>
-            </ol>
+            <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">🔧 Two-Way Setup</h3>
+            
+            <div style="background: #f0f9ff; padding: 15px; border-radius: 10px; border-left: 4px solid #667eea; margin-bottom: 15px;">
+              <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">✅ Option 1: ESP32 Pulls (Recommended)</h4>
+              <p style="color: #666; margin: 0; font-size: 13px; line-height: 1.6;">
+                Your ESP32 fetches messages from this server every 10 minutes. No port forwarding needed!
+                Use the URL shown above in your ESP32 code.
+              </p>
+            </div>
+
+            <div style="background: #fff4e6; padding: 15px; border-radius: 10px; border-left: 4px solid #ff9800; margin-bottom: 15px;">
+              <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">⚙️ Option 2: Server Pushes to ESP32</h4>
+              <p style="color: #666; margin: 0; font-size: 13px; line-height: 1.6;">
+                This server sends messages to your ESP32. Requires setting <code style="background: white; padding: 2px 6px; border-radius: 4px;">ESP32_IP</code> in Vercel settings and port forwarding.
+              </p>
+            </div>
 
             <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">🌐 API Endpoints</h3>
             <div style="background: white; padding: 15px; border-radius: 10px; font-family: monospace; font-size: 13px;">
               <div style="margin-bottom: 10px;">
                 <span style="background: #28a745; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">GET</span>
                 <span style="margin-left: 10px; color: #667eea;">/api/compliment</span>
+                <div style="font-size: 11px; color: #666; margin-left: 60px; margin-top: 3px;">Get random compliment JSON</div>
               </div>
               <div>
                 <span style="background: #007bff; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">POST</span>
                 <span style="margin-left: 10px; color: #667eea;">/api/send</span>
+                <div style="font-size: 11px; color: #666; margin-left: 60px; margin-top: 3px;">Send message to ESP32</div>
               </div>
             </div>
           </div>
 
           <div class="card" style="margin-top: 20px;">
             <h3 style="margin-bottom: 15px; color: #333;">⏰ Automatic Delivery</h3>
-            <p style="color: #666; line-height: 1.6;">
-              Vercel Cron is configured to automatically send compliments every 10 minutes to your ESP32.
-              Check the <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">vercel.json</code> configuration.
+            <p style="color: #666; line-height: 1.6; margin-bottom: 10px;">
+              Vercel free tier: Daily compliment at 9 AM
+            </p>
+            <p style="color: #666; line-height: 1.6; font-size: 13px;">
+              💡 For messages every 10 minutes, use ESP32 pulling method (see URL above).
+              Check <a href="https://github.com/devanshvpurohit/esp32-compliment-server/blob/main/FREE_TIER_SOLUTIONS.md" target="_blank" style="color: #667eea;">FREE_TIER_SOLUTIONS.md</a> for more options.
             </p>
           </div>
         </div>
@@ -459,6 +505,75 @@ module.exports = async (req, res) => {
 
       <script>
         let currentCompliment = '';
+        let apiBaseUrl = '';
+
+        // Get the current URL and set API base URL
+        window.addEventListener('DOMContentLoaded', function() {
+          apiBaseUrl = window.location.origin;
+          const apiUrl = apiBaseUrl + '/api/compliment';
+          
+          // Update the API URL display
+          document.getElementById('apiUrl').textContent = apiUrl;
+          
+          // Update the code snippet
+          const codeSnippet = `const char* API_URL = "${apiUrl}";
+
+void fetchCompliment() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  
+  HTTPClient http;
+  http.begin(API_URL);
+  int code = http.GET();
+  
+  if (code == 200) {
+    String json = http.getString();
+    
+    // Parse JSON
+    StaticJsonDocument<512> doc;
+    deserializeJson(doc, json);
+    const char* msg = doc["compliment"];
+    
+    if (msg) {
+      displayCompliment(String(msg));
+    }
+  }
+  http.end();
+}`;
+          
+          document.getElementById('codeSnippet').textContent = codeSnippet;
+        });
+
+        function copyToClipboard() {
+          const url = document.getElementById('apiUrl').textContent;
+          navigator.clipboard.writeText(url).then(() => {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            btn.style.background = '#28a745';
+            setTimeout(() => {
+              btn.textContent = originalText;
+              btn.style.background = '#667eea';
+            }, 2000);
+          }).catch(() => {
+            alert('Failed to copy. Please copy manually: ' + url);
+          });
+        }
+
+        function copyCode() {
+          const code = document.getElementById('codeSnippet').textContent;
+          navigator.clipboard.writeText(code).then(() => {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            btn.style.background = '#28a745';
+            setTimeout(() => {
+              btn.textContent = originalText;
+              btn.style.background = '#667eea';
+            }, 2000);
+          }).catch(() => {
+            alert('Failed to copy code to clipboard');
+          });
+        }
 
         function switchTab(tabName) {
           // Update tab buttons
