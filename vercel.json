@@ -2,11 +2,7 @@
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "installCommand": "npm install",
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
+
   "rewrites": [
     { "source": "/api/history-clear", "destination": "/api/history-clear" },
     { "source": "/api/esp32-ping",    "destination": "/api/esp32-ping"    },
