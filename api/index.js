@@ -113,15 +113,38 @@ method:'POST',
 headers:{'Content-Type':'application/json'},
 body:JSON.stringify({message:msg})
 });
-const data=await res.json();
+
+// Check if response is ok
+if(!res.ok){
+const text=await res.text();
+console.error('Response error:',text);
+showResult('❌ Server error: '+res.status,'error');
+btn.disabled=false;
+btn.textContent='📤 Send to ESP32';
+return;
+}
+
+// Try to parse JSON
+let data;
+try{
+data=await res.json();
+}catch(e){
+const text=await res.text();
+console.error('JSON parse error:',text);
+showResult('❌ Invalid response from server','error');
+btn.disabled=false;
+btn.textContent='📤 Send to ESP32';
+return;
+}
 
 if(data.success){
 showResult('✅ Message sent successfully!','success');
 document.getElementById('message').value='';
 }else{
-showResult('❌ '+data.error,'error');
+showResult('ℹ️ '+data.error,'error');
 }
 }catch(e){
+console.error('Fetch error:',e);
 showResult('❌ Error: '+e.message,'error');
 }finally{
 btn.disabled=false;
