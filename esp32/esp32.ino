@@ -63,7 +63,7 @@
 
 // ── Vercel deployment URL (no trailing slash) ─────────────────────────────────
 //    Example: "https://workbetter-abc123.vercel.app"
-#define VERCEL_HOST "https://your-app.vercel.app"
+#define VERCEL_HOST "https://esp32-server-eta.vercel.app"
 
 // ── Polling interval: how often the ESP32 checks for new messages ─────────────
 #define POLL_INTERVAL_MS   30000UL   // 30 seconds  (lower = more responsive)
