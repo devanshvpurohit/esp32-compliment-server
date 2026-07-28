@@ -79,7 +79,7 @@ app.get("/api/esp32-ping", (req, res) => {
 });
 
 // ─── FALLBACK ROUTE ───────────────────────────────────────────────────────────
-app.all("/api/*", (req, res) => {
+app.all("/api/(.*)", (req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
