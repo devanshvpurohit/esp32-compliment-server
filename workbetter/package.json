@@ -1,0 +1,12 @@
+{
+  "name": "workbetter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WorkBetter ESP32 Compliment Dashboard — Vercel Edition",
+  "dependencies": {
+    "@upstash/redis": "^1.38.0"
+  },
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}

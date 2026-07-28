@@ -1,0 +1,26 @@
+{
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/history-clear", "destination": "/api/history-clear" },
+    { "source": "/api/esp32-ping",    "destination": "/api/esp32-ping"    },
+    { "source": "/api/(.*)",          "destination": "/api/$1"             },
+    { "source": "/((?!api).*)",       "destination": "/index.html"         }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin",  "value": "*"                           },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS"             },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization"  }
+      ]
+    }
+  ]
+}
