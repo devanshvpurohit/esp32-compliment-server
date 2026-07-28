@@ -1,38 +1,26 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/**/*.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)\\.py",
-      "dest": "/api/$1.py"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.js"
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/webhook",
-      "schedule": "0 9 * * *"
-    }
-  ],
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install",
   "functions": {
     "api/**/*.js": {
-      "maxDuration": 10
+      "runtime": "nodejs20.x"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/history-clear", "destination": "/api/history-clear" },
+    { "source": "/api/esp32-ping",    "destination": "/api/esp32-ping"    },
+    { "source": "/api/(.*)",          "destination": "/api/$1"             },
+    { "source": "/((?!api).*)",       "destination": "/index.html"         }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin",  "value": "*"                           },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS"             },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization"  }
+      ]
+    }
+  ]
 }

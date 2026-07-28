@@ -1,256 +1,229 @@
-# ESP32 Compliment Server
+# WorkBetter: ESP32 OLED Compliment System — Vercel Edition ⚡
 
-A Node.js server that sends motivational compliments to your ESP32 clock display every 10 minutes via HTTP.
+A full-stack system for sending real-time compliments and custom messages to an **ESP32 SSD1306 OLED display**, with a beautiful React dashboard deployed on **Vercel**.
 
-## 🌐 Deploy to Vercel
+---
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/devanshvpurohit/esp32-compliment-server)
+## 🏗️ Architecture
 
-**[📖 Full Vercel Deployment Guide →](VERCEL_DEPLOY.md)**
+```
+React Dashboard (Vercel Static)
+        │  HTTP polling every 5 s
+        ▼
+Vercel Serverless API  /api/*
+        │  Reads / writes state
+        ▼
+Upstash Redis  (free tier)
+        ▲  HTTPS polling every 30 s
+        │
+ESP32 Wi-Fi Client
+        │  I²C / SPI
+        ▼
+SSD1306 OLED (128 × 64)
+```
 
-### ⚠️ Free Tier Note
-Vercel's free tier only supports daily cron jobs. For messages every 10 minutes, see our **[Free Tier Solutions Guide](FREE_TIER_SOLUTIONS.md)** which includes:
-- ESP32 polling (recommended)
-- GitHub Actions (free)
-- Third-party cron services
-- And more!
+---
 
-## Features
+## 📂 Project Structure
 
-- 🎁 Automatically sends compliments every 10 minutes
-- 📡 RESTful API for manual triggers and compliment fetching
-- 📊 Web dashboard with delivery statistics
-- 🔄 Configurable intervals and ESP32 IP
-- 💪 Error handling and retry logic
-- 🌐 CORS-enabled for web integration
+```
+workbetter/
+├── .env.example              ← copy to .env.local and fill in your values
+├── vercel.json               ← Vercel routing + build config
+├── package.json              ← root: @upstash/redis for API routes
+│
+├── api/                      ← Vercel Serverless Functions
+│   ├── _lib/
+│   │   ├── compliments.js    ← compliments list + random picker
+│   │   └── kv.js             ← Upstash Redis helpers
+│   ├── message.js            ← GET  /api/message
+│   ├── send.js               ← POST /api/send
+│   ├── history.js            ← GET  /api/history
+│   ├── history-clear.js      ← POST /api/history-clear
+│   ├── status.js             ← GET  /api/status
+│   └── esp32-ping.js         ← GET  /api/esp32-ping  (ESP32 heartbeat + message)
+│
+├── frontend/                 ← React + Vite (built to frontend/dist)
+│   ├── package.json
+│   ├── vite.config.js        ← proxies /api/* to localhost:3000 in local dev
+│   └── src/
+│       ├── lib/
+│       │   └── compliments.js ← client-side compliments (for countdown timer)
+│       ├── hooks/
+│       │   └── useApi.js      ← polling hook (replaces Socket.IO)
+│       ├── Dashboard.jsx
+│       └── components/
+│           ├── ConnectionStatus.jsx
+│           ├── MessageForm.jsx
+│           ├── Favorites.jsx
+│           ├── Scheduler.jsx
+│           ├── HistoryList.jsx
+│           ├── OledPreview.jsx
+│           └── AutoComplimentTimer.jsx
+│
+└── esp32/
+    └── esp32.ino             ← HTTPS polling firmware (no WebSockets needed)
+```
 
-## Prerequisites
+---
 
-- Node.js 14.0.0 or higher
-- ESP32 running the clock firmware (must accept POST requests at `/compliment` endpoint)
+## 🚀 Deploy to Vercel — Step by Step
 
-## Quick Start
+### 1. Create a free Upstash Redis database
 
-1. **Install dependencies** (none required, uses only Node.js built-in modules!)
+1. Go to **https://console.upstash.com** → Sign up / log in (free).
+2. Click **Create Database** → choose a region close to you → **Create**.
+3. Open the database → **REST API** tab → copy:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
 
-2. **Configure the server**
+### 2. Push to GitHub
 
-   Edit `compliment-server.js` and update the configuration:
-   ```javascript
-   const CONFIG = {
-     ESP32_IP: '192.168.4.1',  // ← Change to your ESP32's IP address
-     ESP32_PORT: 80,
-     COMPLIMENT_INTERVAL: 10 * 60 * 1000,  // 10 minutes
-   };
-   ```
-
-3. **Run the server**
-   ```bash
-   npm start
-   # or
-   node compliment-server.js
-   ```
-
-4. **Access the dashboard**
-   
-   Open http://localhost:3000 in your browser to see stats and manually trigger compliments.
-
-## API Endpoints
-
-### GET /api/compliment
-Get a random compliment
 ```bash
-curl http://localhost:3000/api/compliment
-```
-Response:
-```json
-{
-  "success": true,
-  "compliment": "You're amazing!",
-  "total": 50,
-  "timestamp": "2024-01-15T10:30:00.000Z"
-}
+# From the workbetter/ folder (or the repo root):
+git add .
+git commit -m "feat: WorkBetter Vercel edition"
+git push
 ```
 
-### POST /api/trigger
-Manually trigger sending a compliment to ESP32
+### 3. Import into Vercel
+
+1. Go to **https://vercel.com/new** → **Import Git Repository**.
+2. Select your repo → Vercel auto-detects `vercel.json`.
+3. Before deploying, add your environment variables under **Environment Variables**:
+
+| Name | Value |
+|---|---|
+| `UPSTASH_REDIS_REST_URL` | `https://your-db.upstash.io` |
+| `UPSTASH_REDIS_REST_TOKEN` | `your-token` |
+
+4. Click **Deploy** → Vercel builds the React frontend and deploys the API routes.
+5. Your app is live at `https://your-app.vercel.app` 🎉
+
+---
+
+## 💻 Local Development
+
 ```bash
-curl -X POST http://localhost:3000/api/trigger
+# 1. Install Vercel CLI
+npm i -g vercel
+
+# 2. Link the project (first time only)
+cd workbetter
+vercel link
+
+# 3. Pull environment variables from Vercel
+vercel env pull .env.local
+
+# 4. Install dependencies
+npm install                          # root (@upstash/redis for API)
+cd frontend && npm install && cd ..  # React deps
+
+# 5. Start local dev server
+vercel dev    # serves API on :3000 + frontend on :3000 (same origin)
 ```
 
-### GET /api/stats
-Get server statistics
+Open **http://localhost:3000** in your browser.
+
+---
+
+## 🔌 REST API Reference
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/message` | Current message `{id, text, type, timestamp}` |
+| `POST` | `/api/send` | Body `{"text":"…","type":"custom"}` → saves + returns message |
+| `GET` | `/api/history` | Array of last 100 messages, newest first |
+| `POST` | `/api/history-clear` | Deletes all history (current message preserved) |
+| `GET` | `/api/status` | `{"esp32Connected": true/false}` |
+| `GET` | `/api/esp32-ping` | ESP32 heartbeat → returns current message |
+
+### Quick test with curl
+
 ```bash
-curl http://localhost:3000/api/stats
-```
-Response:
-```json
-{
-  "deliveries": 42,
-  "successful": 40,
-  "failed": 2,
-  "intervalMinutes": 10,
-  "esp32": "192.168.4.1:80",
-  "uptime": 7200
-}
+BASE=https://your-app.vercel.app
+
+# Check status
+curl $BASE/api/status
+
+# Send a message
+curl -X POST $BASE/api/send \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello ESP32!","type":"custom"}'
+
+# Read current message
+curl $BASE/api/message
+
+# Simulate ESP32 ping
+curl $BASE/api/esp32-ping
 ```
 
-## ESP32 Integration
+---
 
-Your ESP32 firmware needs to handle POST requests at `/compliment` endpoint:
+## 🔧 ESP32 Configuration
+
+Open [esp32.ino](file:///Users/devanshvpurohit/work/workbetter/esp32/esp32.ino) and change:
 
 ```cpp
-// Add this to your ESP32 code:
-
-void handleCompliment() {
-  if (server.method() != HTTP_POST) {
-    server.send(405, "text/plain", "Method Not Allowed");
-    return;
-  }
-  
-  String body = server.arg("plain");
-  
-  // Parse JSON
-  StaticJsonDocument<200> doc;
-  DeserializationError error = deserializeJson(doc, body);
-  
-  if (error) {
-    server.send(400, "text/plain", "Invalid JSON");
-    return;
-  }
-  
-  String message = doc["message"];
-  
-  // Display the compliment on OLED
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.println("💌 Compliment:");
-  display.println();
-  display.setTextSize(2);
-  display.println(message);
-  display.display();
-  
-  server.send(200, "application/json", "{\"success\":true}");
-}
-
-// In setup(), add:
-server.on("/compliment", HTTP_POST, handleCompliment);
+// ← Your Vercel deployment URL (no trailing slash)
+const char* VERCEL_HOST = "https://your-app.vercel.app";
 ```
 
-**Note:** You'll need to include `ArduinoJson` library in your ESP32 project.
+### Required Libraries (Arduino IDE → Library Manager)
 
-## Configuration Options
+| Library | Author |
+|---|---|
+| Adafruit SSD1306 | Adafruit |
+| Adafruit GFX Library | Adafruit |
+| ArduinoJson | Benoit Blanchon |
 
-Edit the `CONFIG` object in `compliment-server.js`:
+> `WiFi.h`, `HTTPClient.h`, `WiFiClientSecure.h`, `WebServer.h`, `DNSServer.h`, `Preferences.h`, `time.h` are all part of the **ESP32 Arduino Core** (no separate install needed).
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `SERVER_PORT` | 3000 | Port for the web API |
-| `ESP32_IP` | `192.168.4.1` | Your ESP32's IP address |
-| `ESP32_PORT` | 80 | ESP32 web server port |
-| `COMPLIMENT_INTERVAL` | 600000 (10 min) | Time between compliments in milliseconds |
-| `USE_EXTERNAL_API` | false | Use external API for compliments |
-| `EXTERNAL_API_URL` | - | URL of external compliment API |
+### SPI OLED Wiring
 
-## Customizing Compliments
+| OLED Pin | ESP32 GPIO |
+|---|---|
+| VCC | 3.3V |
+| GND | GND |
+| MOSI / SDA | 23 |
+| CLK / SCL | 18 |
+| DC | 16 |
+| CS | 5 |
+| RES / RESET | 17 |
 
-Edit the `COMPLIMENTS` array in `compliment-server.js` to add your own messages:
+### First Boot — Wi-Fi Setup
 
-```javascript
-const COMPLIMENTS = [
-  "You're doing great!",
-  "Your custom message here!",
-  // Add more...
-];
-```
+1. Flash the sketch. The ESP32 boots into **AP mode** → SSID: `ESP32-Clock`.
+2. Connect your phone/laptop to that network.
+3. A setup page opens automatically (or navigate to `192.168.4.1`).
+4. Select your home Wi-Fi from the dropdown, enter the password, press **Save & Connect**.
+5. Credentials are saved to NVS — the ESP32 auto-connects on every subsequent boot.
+6. To reset Wi-Fi: visit `http://<ESP32-IP>/reset` from any browser on the same network.
 
-## Running as a Service
+---
 
-### macOS (launchd)
+## ✨ Features
 
-Create `~/Library/LaunchAgents/com.user.compliment-server.plist`:
+| Feature | Notes |
+|---|---|
+| **10-min auto compliments** | Countdown runs in the browser; dashboard tab must be open |
+| **Custom messages** | Sent instantly via `POST /api/send` |
+| **Favorites** | Saved to `localStorage` — persists across page reloads |
+| **Scheduler** | Client-side `setTimeout`; tab must be open |
+| **OLED preview** | Pixel-perfect 128×64 emulator with scroll animation |
+| **History** | Last 100 messages stored in Upstash Redis |
+| **ESP32 status** | Green if pinged within last 60 s |
+| **Confetti** | Fires on every new message 🎉 |
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.user.compliment-server</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/node</string>
-        <string>/Users/yourusername/work/compliment-server.js</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-</dict>
-</plist>
-```
+---
 
-Load it:
-```bash
-launchctl load ~/Library/LaunchAgents/com.user.compliment-server.plist
-```
+## ⚠️ Differences vs. Local Node.js Server
 
-### Linux (systemd)
-
-Create `/etc/systemd/system/compliment-server.service`:
-
-```ini
-[Unit]
-Description=ESP32 Compliment Server
-After=network.target
-
-[Service]
-Type=simple
-User=youruser
-WorkingDirectory=/home/youruser/work
-ExecStart=/usr/bin/node /home/youruser/work/compliment-server.js
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-```bash
-sudo systemctl enable compliment-server
-sudo systemctl start compliment-server
-```
-
-## Troubleshooting
-
-### ESP32 not receiving compliments
-
-1. Check if the ESP32 IP is correct:
-   ```bash
-   ping 192.168.4.1
-   ```
-
-2. Test the endpoint manually:
-   ```bash
-   curl -X POST http://192.168.4.1/compliment \
-     -H "Content-Type: application/json" \
-     -d '{"message":"Test message"}'
-   ```
-
-3. Check server logs for error messages
-
-### Port already in use
-
-Change `SERVER_PORT` in the configuration or kill the process using port 3000:
-```bash
-lsof -ti:3000 | xargs kill -9
-```
-
-## License
-
-MIT
-
-## Contributing
-
-Feel free to add more compliments or features! Pull requests welcome.
+| Feature | Local | Vercel |
+|---|---|---|
+| ESP32 message latency | ✅ Instant (WebSocket) | ⚠️ ≤30 s (polling) |
+| Dashboard update latency | ✅ Instant (Socket.IO) | ⚠️ ≤5 s (polling) |
+| Auto-compliment timer | ✅ Always-on (server) | ⚠️ Browser tab must be open |
+| Scheduled messages | ✅ Always-on (server) | ⚠️ Browser tab must be open |
+| History persistence | ✅ JSON file | ✅ Upstash Redis |
+| Accessible on internet | ❌ Local only | ✅ Global HTTPS URL |

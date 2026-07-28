@@ -1,23 +1,12 @@
 {
-  "name": "esp32-compliment-server",
+  "name": "workbetter",
   "version": "1.0.0",
-  "description": "Node.js server that sends compliments to ESP32 clock display every 10 minutes",
-  "main": "compliment-server.js",
-  "scripts": {
-    "start": "node compliment-server.js",
-    "dev": "node compliment-server.js",
-    "test": "node test-server.js"
+  "private": true,
+  "description": "WorkBetter ESP32 Compliment Dashboard — Vercel Edition",
+  "dependencies": {
+    "@upstash/redis": "^1.38.0"
   },
-  "keywords": [
-    "esp32",
-    "compliments",
-    "iot",
-    "mqtt",
-    "motivation"
-  ],
-  "author": "",
-  "license": "MIT",
-  "engines": {
-    "node": ">=14.0.0"
+  "scripts": {
+    "dev": "vercel dev"
   }
 }
