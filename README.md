@@ -2,6 +2,12 @@
 
 A Node.js server that sends motivational compliments to your ESP32 clock display every 10 minutes via HTTP.
 
+## 🌐 Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/devanshvpurohit/esp32-compliment-server)
+
+**[📖 Full Vercel Deployment Guide →](VERCEL_DEPLOY.md)**
+
 ## Features
 
 - 🎁 Automatically sends compliments every 10 minutes
