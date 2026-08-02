@@ -78,5 +78,38 @@ app.get("/api/esp32-ping", (req, res) => {
   res.status(200).json(currentMessage);
 });
 
+// ─── ROUTE: POST /api/gesture ─────────────────────────────────────────────────
+app.post("/api/gesture", async (req, res) => {
+  const { gesture } = req.body;
+  if (!gesture) return res.status(400).json({ error: "Missing gesture" });
+
+  if (gesture === "doubletap" || gesture === "shake") {
+    try {
+      const { getRandomCompliment } = await import("./_lib/compliments.js");
+      const text = getRandomCompliment();
+      const msg = {
+        id:        `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        text,
+        type:      "auto",
+        timestamp: new Date().toISOString()
+      };
+
+      currentMessage = msg;
+      history.unshift(msg);
+      if (history.length > HISTORY_MAX) {
+        history = history.slice(0, HISTORY_MAX);
+      }
+
+      console.log(`[${msg.timestamp}] [${msg.type}] Gesture '${gesture}' triggered: "${text}"`);
+      return res.status(200).json({ success: true, message: "Gesture processed", data: msg });
+    } catch (e) {
+      console.error("Error loading compliments:", e);
+      return res.status(500).json({ error: "Failed to process gesture" });
+    }
+  }
+
+  res.status(200).json({ success: true, message: "Gesture received but no action required" });
+});
+
 // Export the Express app as a serverless function handler for Vercel
 module.exports = app;
