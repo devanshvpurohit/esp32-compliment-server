@@ -1,9 +1,10 @@
 /*
  ╔══════════════════════════════════════════════════════════════════╗
- ║         WorkBetter ESP32 — Vercel Edition  v2.0                 ║
+ ║         WorkBetter ESP32 — Vercel Edition  v3.0                 ║
  ║                                                                  ║
  ║  Features:                                                       ║
  ║   • SPI SSD1306 OLED (128×64) — live clock + compliments        ║
+ ║   • MPU6050 IMU — tap, shake, tilt gestures                     ║
  ║   • Captive-portal Wi-Fi setup (scan → dropdown → save)         ║
  ║   • NTP time sync + periodic resync                             ║
  ║   • HTTPS polling to Vercel API every 30 s                      ║
@@ -16,11 +17,20 @@
  ║  Hardware:                                                       ║
  ║   • ESP32 dev board                                              ║
  ║   • SPI SSD1306 OLED 128×64                                     ║
+ ║   • MPU6050 IMU (I2C: SDA=21, SCL=22)                           ║
  ║                                                                  ║
  ║  Libraries (install via Arduino IDE → Library Manager):         ║
  ║   • Adafruit SSD1306                                            ║
  ║   • Adafruit GFX Library                                        ║
  ║   • ArduinoJson  (by Benoit Blanchon)                           ║
+ ║   • Adafruit MPU6050                                            ║
+ ║   • Adafruit Unified Sensor                                     ║
+ ║                                                                  ║
+ ║  IMU Gestures:                                                   ║
+ ║   • Double-tap → Request random compliment                       ║
+ ║   • Shake → Toggle auto-compliment mode                          ║
+ ║   • Tilt 90° → Rotate display orientation                        ║
+ ║   • Face down → Screen saver / sleep mode                        ║
  ║                                                                  ║
  ║  All other headers (WiFi, HTTPClient, WebServer, DNSServer,     ║
  ║  Preferences, time.h) ship with the ESP32 Arduino core.        ║
@@ -35,8 +45,18 @@
 #include <DNSServer.h>
 #include <Preferences.h>
 #include <SPI.h>
+#include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+
+// Optional: IMU support (comment out these lines if you don't have MPU6050)
+// To disable IMU: comment the next 3 lines
+#define ENABLE_IMU  // ← Comment this line to disable IMU completely
+#ifdef ENABLE_IMU
+  #include <Adafruit_MPU6050.h>
+  #include <Adafruit_Sensor.h>
+#endif
+
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
@@ -57,6 +77,16 @@
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT  64
 
+// ── I2C IMU pin mapping (MPU6050) ─────────────────────────────────────────────
+#define IMU_SDA      21   // I2C Data  (default ESP32)
+#define IMU_SCL      22   // I2C Clock (default ESP32)
+
+// ── IMU gesture thresholds ────────────────────────────────────────────────────
+#define TAP_THRESHOLD       2.5f   // G-force for tap detection
+#define SHAKE_THRESHOLD     3.0f   // G-force for shake detection
+#define TILT_THRESHOLD      0.7f   // Normalized axis value for 90° tilt
+#define FACEDOWN_THRESHOLD -0.8f   // Z-axis value when face down
+
 // ── Wi-Fi soft-AP (captive portal) ───────────────────────────────────────────
 #define AP_SSID     "WorkBetter-Setup"
 #define AP_PASSWORD ""              // leave blank for open AP (recommended)
@@ -70,6 +100,10 @@
 
 // ── How long a received message stays on screen before reverting to clock ─────
 #define MSG_DISPLAY_MS     60000UL   // 60 seconds
+
+// ── IMU checker mode (for debugging/calibration) ──────────────────────────────
+#define IMU_CHECKER_MODE   false     // Set to true to show live IMU data on OLED
+#define IMU_CHECKER_INTERVAL_MS  100UL  // Update rate for IMU checker display
 
 // ── NTP / timezone ────────────────────────────────────────────────────────────
 #define NTP_SERVER_1        "pool.ntp.org"
@@ -88,10 +122,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, OLED_DC, OLED_RESET, OLED_CS);
+
+#ifdef ENABLE_IMU
+  Adafruit_MPU6050 mpu;
+#endif
+
 Preferences       prefs;
 WebServer         httpServer(80);
 DNSServer         dnsServer;
 
+// ── IMU state ─────────────────────────────────────────────────────────────────
+bool    imuAvailable        = false;
+uint8_t displayRotation     = 0;        // 0=0°, 1=90°, 2=180°, 3=270°
+bool    screenSaverActive   = false;
+unsigned long lastTapTime   = 0;
+unsigned long lastShakeTime = 0;
+int     tapCount            = 0;
+unsigned long lastIMUCheckerUpdate = 0;
+unsigned long gestureNotifyUntil = 0;
+String  gestureNotifyMsg    = "";
 // ── State machine ─────────────────────────────────────────────────────────────
 enum State { S_BOOT, S_CONNECTING, S_CONNECTED, S_AP_MODE };
 State sysState = S_BOOT;
@@ -123,9 +172,18 @@ int    apNetworkCount   = 0;
 //  FORWARD DECLARATIONS
 // ─────────────────────────────────────────────────────────────────────────────
 void setupDisplay();
+void setupIMU();
+void checkIMUGestures();
+void handleDoubleTap();
+void handleShake();
+void handleTilt();
+void handleFaceDown(bool faceDown);
+
 void oledSplash(const String& l1, const String& l2 = "", const String& l3 = "");
 void oledClock();
 void oledMessage();
+void oledGestureNotification(const String& gesture);
+void oledIMUChecker();
 
 bool wifiConnectSaved();
 void startAP();
@@ -139,6 +197,7 @@ void handleNotFound();
 
 void ntpSync();
 void pollServer();
+void sendGestureTriggeredMessage(const String& gestureType);
 
 String   cleanText(const String& raw);
 void     wrapSegment(const String& seg, int maxCh, std::vector<String>& out);
@@ -151,8 +210,13 @@ void setup() {
   Serial.begin(115200);
   delay(200);
 
+  // Initialize I2C for IMU
+  Wire.begin(IMU_SDA, IMU_SCL);
+
   setupDisplay();
-  oledSplash("WorkBetter", "v2.0  Booting...");
+  setupIMU();
+  
+  oledSplash("WorkBetter", "v3.0  Booting...");
 
   prefs.begin("wb-wifi", false);
   WiFi.mode(WIFI_STA);
@@ -199,6 +263,11 @@ void loop() {
   // ── STA mode ────────────────────────────────────────────────────────────────
   httpServer.handleClient();
 
+  // Check IMU for gestures
+  if (imuAvailable && !screenSaverActive) {
+    checkIMUGestures();
+  }
+
   // Wi-Fi watchdog — reconnect if connection drops
   if (WiFi.status() != WL_CONNECTED) {
     if (millis() - tLastWifiRetry > WIFI_RETRY_INTERVAL_MS) {
@@ -236,6 +305,29 @@ void loop() {
   }
 
   // ── Display logic ─────────────────────────────────────────────────────────
+  if (screenSaverActive) {
+    // Screen is off/dimmed when face down
+    display.clearDisplay();
+    display.display();
+    return;
+  }
+
+  if (millis() < gestureNotifyUntil) {
+    oledGestureNotification(gestureNotifyMsg);
+    return;
+  }
+
+  // ── IMU Checker Mode ──────────────────────────────────────────────────────
+  #ifdef ENABLE_IMU
+  if (IMU_CHECKER_MODE && imuAvailable) {
+    if (millis() - lastIMUCheckerUpdate >= IMU_CHECKER_INTERVAL_MS) {
+      lastIMUCheckerUpdate = millis();
+      oledIMUChecker();
+    }
+    return;  // Skip normal display logic
+  }
+  #endif
+
   if (showMsg) {
     // Revert to clock after MSG_DISPLAY_MS milliseconds
     if (millis() - msgShownAt > MSG_DISPLAY_MS) {
@@ -271,7 +363,318 @@ void setupDisplay() {
   }
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
+  display.setRotation(displayRotation);
   display.display();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  IMU SETUP & GESTURE DETECTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+void setupIMU() {
+#ifdef ENABLE_IMU
+  Serial.println(F("[IMU] Initializing MPU6050..."));
+  
+  if (!mpu.begin()) {
+    Serial.println(F("[IMU] MPU6050 not found — continuing without IMU"));
+    imuAvailable = false;
+    return;
+  }
+
+  Serial.println(F("[IMU] MPU6050 found!"));
+  
+  // Configure accelerometer range (±2G, ±4G, ±8G, or ±16G)
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  
+  // Configure gyroscope range
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  
+  // Configure filter bandwidth
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+  
+  imuAvailable = true;
+  Serial.println(F("[IMU] MPU6050 configured successfully"));
+#else
+  Serial.println(F("[IMU] IMU support disabled in code (ENABLE_IMU not defined)"));
+  imuAvailable = false;
+#endif
+}
+
+void checkIMUGestures() {
+#ifdef ENABLE_IMU
+  sensors_event_t accel, gyro, temp;
+  mpu.getEvent(&accel, &gyro, &temp);
+  
+  // Calculate total acceleration magnitude
+  float accelMag = sqrt(
+    accel.acceleration.x * accel.acceleration.x +
+    accel.acceleration.y * accel.acceleration.y +
+    accel.acceleration.z * accel.acceleration.z
+  );
+  
+  // Normalize acceleration vector (for orientation detection)
+  float accelX = accel.acceleration.x / accelMag;
+  float accelY = accel.acceleration.y / accelMag;
+  float accelZ = accel.acceleration.z / accelMag;
+  
+  // ── FACE DOWN DETECTION (screen saver) ───────────────────────────────────
+  bool currentlyFaceDown = (accelZ < FACEDOWN_THRESHOLD);
+  if (currentlyFaceDown != screenSaverActive) {
+    handleFaceDown(currentlyFaceDown);
+  }
+  
+  // Skip other gestures if screen saver is active
+  if (screenSaverActive) return;
+  
+  // ── TAP DETECTION ─────────────────────────────────────────────────────────
+  // Look for sudden acceleration spike
+  if (accelMag > (9.8f + TAP_THRESHOLD)) {
+    unsigned long now = millis();
+    
+    // Double-tap window: 500ms
+    if (now - lastTapTime < 500) {
+      tapCount++;
+      if (tapCount >= 2) {
+        handleDoubleTap();
+        tapCount = 0;
+      }
+    } else {
+      tapCount = 1;
+    }
+    lastTapTime = now;
+  }
+  
+  // ── SHAKE DETECTION ───────────────────────────────────────────────────────
+  if (accelMag > (9.8f + SHAKE_THRESHOLD)) {
+    unsigned long now = millis();
+    // Debounce: minimum 2 seconds between shakes
+    if (now - lastShakeTime > 2000) {
+      handleShake();
+      lastShakeTime = now;
+    }
+  }
+  
+  // ── TILT DETECTION (orientation change) ──────────────────────────────────
+  // Check if device is tilted significantly on X or Y axis
+  static unsigned long lastTiltCheck = 0;
+  if (millis() - lastTiltCheck > 1000) {  // Check every second
+    lastTiltCheck = millis();
+    
+    if (abs(accelX) > TILT_THRESHOLD || abs(accelY) > TILT_THRESHOLD) {
+      handleTilt();
+    }
+  }
+#endif
+}
+
+void handleDoubleTap() {
+  Serial.println(F("[IMU] Double-tap detected → Requesting compliment"));
+  gestureNotifyMsg = "TAP!";
+  gestureNotifyUntil = millis() + 800;
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    sendGestureTriggeredMessage("doubletap");
+  }
+}
+
+void handleShake() {
+  Serial.println(F("[IMU] Shake detected → Toggling features & requesting compliment"));
+  gestureNotifyMsg = "SHAKE!";
+  gestureNotifyUntil = millis() + 800;
+  
+  // Option 1: Toggle between message/clock
+  showMsg = !showMsg;
+  if (showMsg) {
+    msgShownAt = millis();
+  }
+  
+  // Option 2: Request new message
+  if (WiFi.status() == WL_CONNECTED) {
+    sendGestureTriggeredMessage("shake");
+  }
+}
+
+void handleTilt() {
+  // Rotate display 90 degrees clockwise
+  displayRotation = (displayRotation + 1) % 4;
+  display.setRotation(displayRotation);
+  
+  Serial.printf("[IMU] Tilt detected → Rotation: %d°\n", displayRotation * 90);
+  gestureNotifyMsg = "ROTATE!";
+  gestureNotifyUntil = millis() + 500;
+}
+
+void handleFaceDown(bool faceDown) {
+  screenSaverActive = faceDown;
+  
+  if (faceDown) {
+    Serial.println(F("[IMU] Face down → Screen saver ON"));
+    display.clearDisplay();
+    display.display();
+  } else {
+    Serial.println(F("[IMU] Face up → Screen saver OFF"));
+    // Force redraw
+    if (showMsg) {
+      oledMessage();
+    } else {
+      oledClock();
+    }
+  }
+}
+
+void oledGestureNotification(const String& gesture) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  
+  int16_t x = (SCREEN_WIDTH - gesture.length() * 12) / 2;
+  int16_t y = (SCREEN_HEIGHT - 16) / 2;
+  
+  display.setCursor(x, y);
+  display.print(gesture);
+  display.display();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  IMU CHECKER — Live sensor data display for debugging/calibration
+// ─────────────────────────────────────────────────────────────────────────────
+
+void oledIMUChecker() {
+#ifdef ENABLE_IMU
+  if (!imuAvailable) {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 0);
+    display.println(F("IMU Checker Mode"));
+    display.println();
+    display.println(F("ERROR:"));
+    display.println(F("MPU6050 not found!"));
+    display.println();
+    display.println(F("Check wiring:"));
+    display.println(F("SDA=21 SCL=22"));
+    display.display();
+    return;
+  }
+
+  sensors_event_t accel, gyro, temp;
+  mpu.getEvent(&accel, &gyro, &temp);
+  
+  // Calculate derived values
+  float accelMag = sqrt(
+    accel.acceleration.x * accel.acceleration.x +
+    accel.acceleration.y * accel.acceleration.y +
+    accel.acceleration.z * accel.acceleration.z
+  );
+  
+  float accelX = accel.acceleration.x / accelMag;
+  float accelY = accel.acceleration.y / accelMag;
+  float accelZ = accel.acceleration.z / accelMag;
+  
+  float gyroMag = sqrt(
+    gyro.gyro.x * gyro.gyro.x +
+    gyro.gyro.y * gyro.gyro.y +
+    gyro.gyro.z * gyro.gyro.z
+  );
+  
+  // Display
+  display.clearDisplay();
+  display.setTextSize(1);
+  
+  // Header
+  display.setCursor(0, 0);
+  display.println(F("=== IMU CHECKER ==="));
+  
+  // Acceleration (raw)
+  display.setCursor(0, 10);
+  display.print(F("Acc: "));
+  display.print(accel.acceleration.x, 1);
+  display.print(F(","));
+  display.print(accel.acceleration.y, 1);
+  display.print(F(","));
+  display.print(accel.acceleration.z, 1);
+  
+  // Magnitude & normalized Z
+  display.setCursor(0, 19);
+  display.print(F("Mag: "));
+  display.print(accelMag, 1);
+  display.print(F("  Nz:"));
+  display.print(accelZ, 2);
+  
+  // Gyroscope
+  display.setCursor(0, 28);
+  display.print(F("Gyr: "));
+  display.print(gyro.gyro.x, 1);
+  display.print(F(","));
+  display.print(gyro.gyro.y, 1);
+  display.print(F(","));
+  display.print(gyro.gyro.z, 1);
+  
+  // Temperature
+  display.setCursor(0, 37);
+  display.print(F("Temp: "));
+  display.print(temp.temperature, 1);
+  display.print(F(" C"));
+  
+  // Gesture indicators
+  display.setCursor(0, 46);
+  if (accelMag > (9.8f + TAP_THRESHOLD)) {
+    display.print(F("[TAP] "));
+  }
+  if (accelMag > (9.8f + SHAKE_THRESHOLD)) {
+    display.print(F("[SHAKE]"));
+  }
+  
+  display.setCursor(0, 55);
+  if (accelZ < FACEDOWN_THRESHOLD) {
+    display.print(F("[FACE DOWN]"));
+  } else if (abs(accelX) > TILT_THRESHOLD || abs(accelY) > TILT_THRESHOLD) {
+    display.print(F("[TILT]"));
+  }
+  
+  display.display();
+  
+  // Also print to serial for data logging
+  Serial.printf("[IMU] Acc:(%.2f,%.2f,%.2f) Mag:%.2f Nz:%.2f Gyr:(%.2f,%.2f,%.2f) Temp:%.1fC\n",
+    accel.acceleration.x, accel.acceleration.y, accel.acceleration.z,
+    accelMag, accelZ,
+    gyro.gyro.x, gyro.gyro.y, gyro.gyro.z,
+    temp.temperature
+  );
+#endif
+}
+
+void sendGestureTriggeredMessage(const String& gestureType) {
+  // This function sends a signal to your API that a gesture occurred
+  // You can extend your API to handle gesture-triggered actions
+  
+  String url = String(VERCEL_HOST) + F("/api/gesture");
+  Serial.printf("[Gesture] POST %s (type: %s)\n", url.c_str(), gestureType.c_str());
+
+  WiFiClientSecure tlsClient;
+  tlsClient.setInsecure();
+
+  HTTPClient http;
+  if (!http.begin(tlsClient, url)) {
+    Serial.println(F("[Gesture] http.begin() failed"));
+    return;
+  }
+  
+  http.setTimeout(5000);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("User-Agent", "WorkBetter-ESP32/3.0");
+
+  String payload = "{\"gesture\":\"" + gestureType + "\"}";
+  int code = http.POST(payload);
+  
+  if (code == 200) {
+    Serial.println(F("[Gesture] Successfully sent to server"));
+    // The server can respond with a new message if needed
+    String response = http.getString();
+    Serial.printf("[Gesture] Response: %s\n", response.c_str());
+  } else {
+    Serial.printf("[Gesture] HTTP %d\n", code);
+  }
+  
+  http.end();
 }
 
 // Show up to three status lines with a ruled header
@@ -281,7 +684,7 @@ void oledSplash(const String& l1, const String& l2, const String& l3) {
 
   // Branded header
   display.setCursor(0, 0);
-  display.println(F("WorkBetter v2.0"));
+  display.println(F("WorkBetter v3.0"));
   display.drawLine(0, 10, SCREEN_WIDTH - 1, 10, SSD1306_WHITE);
 
   display.setCursor(0, 18);  display.println(l1);
