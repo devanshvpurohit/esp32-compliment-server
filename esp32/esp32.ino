@@ -152,6 +152,7 @@ unsigned long tLastNtpSync    = 0;
 unsigned long tLastApOledRefresh = 0;
 unsigned long tLastPoll       = 0;
 unsigned long tLastScroll     = 0;
+unsigned long tLastHeartbeat  = 0;
 bool          timeSynced      = false;
 
 // ── Message / display state ───────────────────────────────────────────────────
@@ -341,12 +342,20 @@ void loop() {
         if (scrollIdx > (int)lines.size() - MAX_VISIBLE) scrollIdx = 0;
         oledMessage();
       }
-      return; // skip the delay below; scrolling drives the refresh cadence
     } else {
       oledMessage();
     }
   } else {
     oledClock();
+  }
+
+  // ── Periodic Serial Debug Info (Every 5 Seconds) ────────────────────────
+  if (millis() - tLastHeartbeat >= 5000) {
+    tLastHeartbeat = millis();
+    Serial.print(F("[System Status] WiFi: "));
+    Serial.print(WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
+    Serial.print(F(" | IMU: "));
+    Serial.println(imuAvailable ? "Detected & Active" : "NOT FOUND / DISABLED");
   }
 
   delay(200); // gentle pacing — keeps the OLED from flickering
